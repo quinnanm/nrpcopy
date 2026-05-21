@@ -97,7 +97,7 @@ def create_copy_pod(pod, namespace, pvc):
         "spec": {
             "containers": [{
                 "name": "copy", "image": "ubuntu:22.04",
-                "command": ["sleep", "infinity"],
+                "command": ["/bin/bash", "-c", "apt-get update && apt-get install -y rsync && sleep infinity"],
                 "volumeMounts": [{"mountPath": "/data", "name": "pvc"}],
             }],
             "volumes": [{"name": "pvc", "persistentVolumeClaim": {"claimName": pvc}}],

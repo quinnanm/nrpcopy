@@ -9,7 +9,7 @@ spec:
     image: ubuntu:22.04
     command: ["/bin/bash", "-c", "apt-get update && apt-get install -y rsync && sleep infinity"]
     volumeMounts:
-    - mountPath: /traindatavol
+    - mountPath: /data
       name: pvc
   volumes:
   - name: pvc
