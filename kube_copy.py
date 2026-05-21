@@ -186,7 +186,7 @@ def build_batch_script(batch, pod, namespace, krsync_path):
         dst_dir = shlex.quote(str(Path(dst).parent))
         src_q   = shlex.quote(str(src))
         dst_q   = shlex.quote(dst)
-        pod_dst = f"{pod}:{dst}"
+        pod_dst = f"{pod}@{namespace}:{dst}"
         lines += [
             f"# {src.name}",
             f"kubectl -n {namespace} exec {pod} -- mkdir -p {dst_dir}",
@@ -642,4 +642,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-PYEOF

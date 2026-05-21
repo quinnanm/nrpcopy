@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: traindatavol
+spec:
+  storageClassName: rook-cephfs
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 5000Gi
