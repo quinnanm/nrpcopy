@@ -1,54 +1,140 @@
-# kube_copy.py
+# NRPCOPY
 
-Copy `.root` files from the UAF cluster (`uaf-4.t2.ucsd.edu`) to a PVC on the NRP Nautilus cluster.
+This is a collection of scripts for copying files from the a t2 cluster (ie `uaf-4.t2.ucsd.edu`) to a PVC on the NRP Nautilus cluster.
 
-The script runs **on UAF**. It uses `krsync` — a thin wrapper that tunnels `rsync` over `kubectl exec` — to stream files directly into a long-lived pod that has your PVC mounted. Files are split into batches and run in parallel background processes.
+The script runs **on UAF/T2**. It uses `krsync` — a thin wrapper that tunnels `rsync` over `kubectl exec` — to stream files directly into a long-lived pod that has your PVC on the namespace mounted. Files are split into batches and run in parallel background processes. This was designed for the axol1tl namespace, UAF, and the traindatavol pvc but can be generalized. I hope you find it useful! :)
 
 ---
 
-## Prerequisites
+## Setup
 
-All of these need to be set up on UAF before running the script.
+All of these need to be set up on UAF before things will work
 
-**1. kubectl and kubelogin**
-Follow the [NRP getting started guide](https://nrp.ai/documentation/userdocs/start/getting-started/). In short:
-- Download the `x86_64` kubectl binary, place it in `~/.local/bin/`, add that to your `$PATH`
-- Install the `oidc-login` plugin via `kubectl krew install oidc-login`
-- Download your kubeconfig from `https://nrp.ai/config`, save as `~/.kube/config`
-- Authenticate: `kubectl get pods -n axol1tl`
+**NRP, kubectl and kubelogin setup**
+This comes from the [NRP getting started guide](https://nrp.ai/documentation/userdocs/start/getting-started/). 
 
-**2. krsync**
-The script will auto-create a `krsync` wrapper in the current directory if one is not found. You can also place an existing one there manually. There should already be a copy in `/ceph/cms/store/user/mequinna/ntuples/`.
+0) ssh into your T2 cluster (of course you need access first)
 
-**3. A PVC on NRP**
-You need a PVC created in your namespace before running. Example:
-```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mequinna-pvc
-spec:
-  storageClassName: rook-cephfs
-  accessModes:
-  - ReadWriteMany
-  resources:
-    requests:
-      storage: 5000Gi
 ```
-Apply it with:
-```bash
-kubectl apply -f mequinna-pvc.yaml -n axol1tl
-kubectl get pvc -n axol1tl   # wait for STATUS=Bound
+#can do uaf-1,2,3 or 4
+ssh username@uaf-2.t2.ucsd.edu
 ```
 
-**4. A copy pod**
-A long-lived pod with your PVC mounted needs to be running on NRP. Pass `--create-pod` on your first run and the script will create one automatically. Or create it manually:
-```bash
-kubectl run copy-pod -n axol1tl \
-  --image=ubuntu:22.04 \
-  --overrides='{"spec":{"volumes":[{"name":"pvc","persistentVolumeClaim":{"claimName":"mequinna-pvc"}}],"containers":[{"name":"copy-pod","image":"ubuntu:22.04","command":["sleep","infinity"],"volumeMounts":[{"mountPath":"/data","name":"pvc"}]}]}}' \
-  -- sleep infinity
+1) log into [nrp.ai](nrp.ai) in your browser. You need to be in the namespace where the files are being copied.
+
+2) install kubectl
+
 ```
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+chmod +x kubectl
+mkdir -p ~/.local/bin
+mv ./kubectl ~/.local/bin/kubectl
+```
+
+get the path variables set properly and verify it works:
+
+```
+export PATH="$HOME/.local/bin:$PATH"
+source ~/.bashrc
+which kubectl
+kubectl version --client
+```
+
+3) install krew +kubelogin (this takes a while)
+
+```
+(
+  set -x; cd "$(mktemp -d)" &&
+  OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+  ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
+  KREW="krew-${OS}_${ARCH}" &&
+  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+  tar zxvf "${KREW}.tar.gz" &&
+  ./"${KREW}" install krew
+)
+```
+set path, install and verify
+
+```
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+source ~/.bashrc
+kubectl krew install oidc-login
+kubectl oidc-login --version
+```
+
+4) get nrp config file and copy it to the cluster
+
+on the cluster:
+
+```
+mkdir ~/.kube
+```
+
+on your local machine:
+download-> [https://nrp.ai/config](https://nrp.ai/config)
+
+```
+scp ~/Downloads/config-2 mequinna@uaf-4.t2.ucsd.edu:~/.kube/config
+```
+
+5) log into nrp from t2 cluster (can use namespace of choice, example here is axol1tl)
+
+```
+kubectl get nodes
+kubectl get pods -n axol1tl
+
+#if you want a default namespace
+kubectl config set contexts.nautilus.namespace axol1tl
+```
+
+6) add to bashrc
+
+do this so you dont have to src the paths again in another session
+
+```
+nano ~/.bashrc
+#add these to the bottom:
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+source ~/.bashrc
+```
+
+**Script setup**
+
+0) after doing above, ssh into t2 cluster and clone the git repo
+
+```
+bash
+git clone https://github.com/quinnanm/nrpcopy.git
+cd nrpcopy
+```
+
+you should have a few scripts of note: kube_copy.py, krsync and ymls/copy-pod.yml
+
+1) set up the pod for copying
+
+```
+kubectl apply -f ymls/copy-pod.yml
+#check its running:
+kubectl get pods -n axol1tl
+```
+copy-pod needs to be "Running" for any of this to work.
+
+2) give krsync permissions
+
+this is needed for it to work. if you get permission issues this is a likely culprit
+
+```
+chmod +x krsync
+ls -la krsync
+# should show -rwxr-xr-x
+```
+
+3) prepare for liftoff
+
+you need an input directory on the T2 of files you want to copy, a pvc on NRP to copy to, an output directory on that pvc, a namespace, and your running copy-pod
 
 ---
 
@@ -56,10 +142,10 @@ kubectl run copy-pod -n axol1tl \
 
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
-  --output-path /data/ntuples \
-  --namespace axol1tl \
-  --pvc mequinna-pvc
+  --input-dirs /indir/name \
+  --output-path /outdir/name \
+  --namespace nameofnamespace \
+  --pvc pvc name
 ```
 
 This will find all `.root` files under the input directory, split them into batches of 100, run up to 4 batches in parallel, block until everything is done, and print a summary.
@@ -72,6 +158,74 @@ python kube_copy.py \
   --namespace axol1tl \
   --pvc mequinna-pvc \
   --dry-run
+```
+
+Here is what I did in my working example: flat means there are no nested dirs like the input dirs, just the target output dirs. 
+
+```
+#try it
+python kube_copy.py \
+  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /data/ADsamples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --files-per-job 50 \
+  --max-parallel 4 \
+  --flat \
+  --dry-run
+
+#submit for real
+python kube_copy.py \
+  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /data/ADsamples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --files-per-job 50 \
+  --max-parallel 4 \
+  --flat
+
+#resubmit failed jobs
+python kube_copy.py \
+  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /data/ADsamples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --files-per-job 50 \
+  --max-parallel 4 \
+  --flat \
+  --skip-existing
+
+#or to avoid printouts/holding the command line hostage
+python kube_copy.py \
+  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /data/ADsamples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --files-per-job 50 \
+  --max-parallel 4 \
+  --flat \
+  --no-wait
+```
+
+log files are printed in copy_logs/.
+
+then check the status on nrp:
+
+```
+kubectl exec -it copy-pod -n axol1tl -- bash
+ls /data/ADsamples/VBFHto2B_25/
+ls /data/ADsamples/VBFHto2B_25/ | wc -l
+exit
+```
+
+dont forget to delete the pod when done!
+
+```
+kubectl delete pod copy-pod -n axol1tl
 ```
 
 ---
