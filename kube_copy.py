@@ -153,13 +153,12 @@ def ensure_krsync(path):
 
 # ── File discovery ────────────────────────────────────────────────────────────
 
-def find_root_files(directory):
+def find_root_files(directory, pattern="*.root"):
     d = Path(directory)
     if not d.exists():
         warn(f"Directory not found: {directory}")
         return []
-    return sorted(d.rglob("*.root"))
-
+    return sorted(d.rglob(pattern))
 
 def build_output_path(src_file, src_base, output_base, prefix, flat):
     fname = src_file.name
@@ -321,6 +320,9 @@ def parse_args():
         metavar="N", help="Files per batch (default: 100)")
     p.add_argument("--max-parallel", type=int, default=4,
         metavar="N", help="Max batches running simultaneously (default: 4)")
+    p.add_argument("--filetype", default="*.root",
+        metavar="PATTERN", help="File pattern to match (default: *.root). "
+    "e.g. --filetype '*.h5' or --filetype '*' for all files")
     p.add_argument("--krsync", default="./krsync",
         help="Path to krsync wrapper script (created if missing)")
     p.add_argument("--skip-existing", action="store_true",
@@ -450,7 +452,7 @@ def main():
     # ── Collect files ─────────────────────────────────────────────────────────
     all_jobs = []
     for src_dir, prefix in zip(args.input_dirs, prefixes):
-        files = find_root_files(src_dir)
+        files = find_root_files(src_dir, args.filetype)
         info(f"Found {len(files)} .root files in {src_dir}")
         for f in files:
             dst = build_output_path(

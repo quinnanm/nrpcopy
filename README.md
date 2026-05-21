@@ -160,6 +160,16 @@ python kube_copy.py \
   --dry-run
 ```
 
+By default the script copies all `.root` files. To copy a different file type:
+```bash
+python kube_copy.py \
+  --input-dirs /ceph/cms/store/user/mequinna/ntuples/MyData \
+  --output-path /data/ADsamples/MyData \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --filetype '*.h5'
+```
+
 Here is what I did in my working example: flat means there are no nested dirs like the input dirs, just the target output dirs. 
 
 ```
@@ -321,6 +331,7 @@ This prints counts of succeeded / failed / size-mismatched files, lists any prob
 | `--copy-pod` | `copy-pod` | Name of the long-lived pod with the PVC mounted. |
 | `--create-pod` | off | Create the copy pod if it doesn't exist. |
 | `--prefix` | none | One prefix string per input dir. `--prefix QCD TTbar` renames files to `QCD_file.root`, `TTbar_file.root`. Count must match `--input-dirs`. |
+| `--filetype` | `*.root` | File pattern to match. e.g. `--filetype '*.h5'` or `--filetype '*'` for all files. |
 | `--flat` | off | Put all output files in one flat directory. Without this, subdirectory structure from the source is preserved. |
 | `--files-per-job` | `100` | Number of files per batch. |
 | `--max-parallel` | `4` | Maximum number of batches running simultaneously. |
