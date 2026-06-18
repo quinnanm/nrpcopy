@@ -1,6 +1,6 @@
 # NRPCOPY
 
-This is a collection of scripts for copying files from the a t2 cluster (ie `uaf-4.t2.ucsd.edu`) to a PVC on the NRP Nautilus cluster.
+This is a collection of scripts for copying files from the a t2 cluster (ie `uaf-4.t2.ucsd.edu`) to a PVC on the NRP Nautilus cluster. In principle this could be used for copying between any remote cluster and NRP (lxplus, lpc, etc...)
 
 The script runs **on UAF/T2**. It uses `krsync` — a thin wrapper that tunnels `rsync` over `kubectl exec` — to stream files directly into a long-lived pod that has your PVC on the namespace mounted. Files are split into batches and run in parallel background processes. This was designed for the axol1tl namespace, UAF, and the traindatavol pvc but can be generalized. I hope you find it useful! :)
 
@@ -76,7 +76,7 @@ on your local machine:
 download-> [https://nrp.ai/config](https://nrp.ai/config)
 
 ```
-scp ~/Downloads/config-2 mequinna@uaf-4.t2.ucsd.edu:~/.kube/config
+scp ~/Downloads/config username@uaf-4.t2.ucsd.edu:~/.kube/config
 ```
 
 5) log into nrp from t2 cluster (can use namespace of choice, example here is axol1tl)
@@ -151,19 +151,21 @@ python kube_copy.py \
 This will find all `.root` files under the input directory, split them into batches of 100, run up to 4 batches in parallel, block until everything is done, and print a summary.
 
 Always do a **dry run first** to verify the file list and destination paths before copying anything:
+
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
+  --input-dirs /ceph/cms/store/user/username/ntuples/QCD \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc \
+  --pvc username-pvc \
   --dry-run
 ```
 
 By default the script copies all `.root` files. To copy a different file type:
+
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/MyData \
+  --input-dirs /ceph/cms/store/user/username/ntuples/MyData \
   --output-path /data/ADsamples/MyData \
   --namespace axol1tl \
   --pvc traindatavol \
@@ -175,7 +177,7 @@ Here is what I did in my working example: flat means there are no nested dirs li
 ```
 #try it
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --input-dirs /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --output-path /data/ADsamples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
@@ -187,7 +189,7 @@ python kube_copy.py \
 
 #submit for real
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --input-dirs /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --output-path /data/ADsamples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
@@ -198,7 +200,7 @@ python kube_copy.py \
 
 #resubmit failed jobs
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --input-dirs /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --output-path /data/ADsamples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
@@ -210,7 +212,7 @@ python kube_copy.py \
 
 #or to avoid printouts/holding the command line hostage
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --input-dirs /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --output-path /data/ADsamples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
@@ -245,14 +247,14 @@ kubectl delete pod copy-pod -n axol1tl
 **Copy multiple sample directories with prefixes, flat output:**
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
-               /ceph/cms/store/user/mequinna/ntuples/TTbar \
-               /ceph/cms/store/user/mequinna/ntuples/WJets \
+  --input-dirs /ceph/cms/store/user/username/ntuples/QCD \
+               /ceph/cms/store/user/username/ntuples/TTbar \
+               /ceph/cms/store/user/username/ntuples/WJets \
   --prefix QCD TTbar WJets \
   --flat \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc
+  --pvc username-pvc
 ```
 
 With `--prefix`, each file is renamed `PREFIX_originalname.root`. With `--flat`, all files land in one directory regardless of the subdirectory structure on UAF. Without `--flat`, the subdirectory structure is preserved under `--output-path`.
@@ -260,20 +262,20 @@ With `--prefix`, each file is renamed `PREFIX_originalname.root`. With `--flat`,
 **First-time run — auto-create the pod:**
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
+  --input-dirs /ceph/cms/store/user/username/ntuples/QCD \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc \
+  --pvc username-pvc \
   --create-pod
 ```
 
 **Fire and forget — return immediately, check later:**
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
+  --input-dirs /ceph/cms/store/user/username/ntuples/QCD \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc \
+  --pvc username-pvc \
   --no-wait
 ```
 
@@ -282,10 +284,10 @@ The script launches batches in the background and exits. The background processe
 **Resume after interruption — skip already-copied files:**
 ```bash
 python kube_copy.py \
-  --input-dirs /ceph/cms/store/user/mequinna/ntuples/QCD \
+  --input-dirs /ceph/cms/store/user/username/ntuples/QCD \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc \
+  --pvc username-pvc \
   --skip-existing
 ```
 
@@ -310,7 +312,7 @@ python kube_copy.py \
   --summarize copy_logs/batch_0520-142301_*.log \
   --output-path /data/ntuples \
   --namespace axol1tl \
-  --pvc mequinna-pvc \
+  --pvc username-pvc \
   --copy-pod copy-pod
 ```
 
@@ -327,7 +329,7 @@ This prints counts of succeeded / failed / size-mismatched files, lists any prob
 | `--input-dirs` | required | One or more source directories on UAF. Recursively finds all `.root` files. |
 | `--output-path` | required | Destination path inside the PVC, e.g. `/data/ntuples`. |
 | `--namespace` | `axol1tl` | Kubernetes namespace. |
-| `--pvc` | required | PVC name, e.g. `mequinna-pvc`. |
+| `--pvc` | required | PVC name, e.g. `username-pvc`. |
 | `--copy-pod` | `copy-pod` | Name of the long-lived pod with the PVC mounted. |
 | `--create-pod` | off | Create the copy pod if it doesn't exist. |
 | `--prefix` | none | One prefix string per input dir. `--prefix QCD TTbar` renames files to `QCD_file.root`, `TTbar_file.root`. Count must match `--input-dirs`. |
@@ -391,7 +393,7 @@ A second python script, `kube_reversecopy.py` is provided for convenience to cop
 # Dry run first
 python kube_reversecopy.py \
   --input-dirs /data/ADsamples/VBFHto2B_25 \
-  --output-path /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
   --copy-pod copy-pod \
@@ -400,7 +402,7 @@ python kube_reversecopy.py \
 # For real
 python kube_reversecopy.py \
   --input-dirs /data/ADsamples/VBFHto2B_25 \
-  --output-path /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --output-path /ceph/cms/store/user/username/ntuples/VBFHto2B_25 \
   --namespace axol1tl \
   --pvc traindatavol \
   --copy-pod copy-pod \
@@ -421,9 +423,9 @@ Reverse copy options:
 | Flag | Default | Description |
 |---|---|---|
 | `--input-dirs` | required | One or more source directories inside the NRP PVC (e.g. `/data/ntuples/QCD`). Recursively finds all `.root` files via `kubectl exec`. |
-| `--output-path` | required | Destination directory on UAF (e.g. `/ceph/cms/store/user/mequinna/ntuples`). |
+| `--output-path` | required | Destination directory on UAF (e.g. `/ceph/cms/store/user/username/ntuples`). |
 | `--namespace` | `axol1tl` | Kubernetes namespace. |
-| `--pvc` | required | PVC name, e.g. `mequinna-pvc`. |
+| `--pvc` | required | PVC name, e.g. `username-pvc`. |
 | `--copy-pod` | `copy-pod` | Name of the long-lived pod with the PVC mounted. |
 | `--create-pod` | off | Create the copy pod if it doesn't exist. |
 | `--prefix` | none | One prefix string per input dir. `--prefix QCD TTbar` renames files to `QCD_file.root`, `TTbar_file.root`. Count must match `--input-dirs`. |
