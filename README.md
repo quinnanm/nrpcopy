@@ -440,3 +440,23 @@ Reverse copy options:
 | `--log-dir` | `./copy_logs` | Directory for per-batch shell scripts and log files. |
 | `--log-file` | `copy_summary.json` | JSON file summarising all file statuses at the end of a blocking run. |
 | `--dry-run` | off | Print everything that would happen without copying anything. Note: file discovery requires a live pod connection, so dry-run exits after the pod check. |
+
+## Exposing/publishing a NRP volume via HTTP (Sidenote)
+
+Also included in the `ymls/webservices` directory are example yamls for creating a website that shows the contents of the pvc (traindatavol in this example, or where the files are) on the kubernetes cluster. Please refer to the [NRP documentation](https://nrp.ai/documentation/userdocs/tutorial/basic2/) for more information.
+
+The website can be created within the webservices directory via for example:
+
+```
+kubectl create -f traindatavol-server-dep.yml -n namespace
+kubectl create -f traindatavol-expose.yml -n namespace
+kubectl create -f traindatavol-ingress.yml -n namespace
+```
+
+This the contents of the pvc can then be viewed online at the associated http address, for example `traindatavol` here: https://traindatavol.nrp-nautilus.io
+
+Files can then be viewed and downloaded directly from there as needed.
+
+This is by no means required but may be a useful visualization for large projects.
+
+Note by default these websites are killed every 2 weeks, if you need them to last longer ask in the NRP matrix chat.

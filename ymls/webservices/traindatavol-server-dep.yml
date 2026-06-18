@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traindatavol-nginx-conf
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes  1;
+
+    events {
+      worker_connections  1024;
+    }
+    http {
+      include       /etc/nginx/mime.types;
+
+      server {
+          listen       80;
+          server_name  localhost;
+          root   /traindatavol;
+
+          location / {
+            autoindex on;
+          }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traindatavol-server-dep
+  labels:
+    run: traindatavolserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: traindatavolserver
+  template:
+    metadata:
+      labels:
+        run: traindatavolserver
+    spec:
+      containers:
+      - name: traindatavol-server
+        image: nginx
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 50m
+          limits:
+            memory: 60Mi
+            cpu: 60m
+        workingDir: /traindatavol
+        volumeMounts:
+        - mountPath: /traindatavol
+          name: traindatavol
+        - name: traindatavol-nginx-conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+      volumes:
+      - name: traindatavol
+        persistentVolumeClaim:
+          claimName: traindatavol
+      - name: traindatavol-nginx-conf
+        configMap:
+          name: traindatavol-nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf
