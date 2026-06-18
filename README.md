@@ -382,3 +382,59 @@ The file was partially transferred. Run `--summarize` to get the resubmit comman
 kubectl exec -n axol1tl copy-pod -- find /data -name "*.root" | wc -l
 kubectl exec -n axol1tl copy-pod -- du -sh /data
 ```
+
+## Reverse copy
+ 
+A second python script, `kube_reversecopy.py` is provided for convenience to copy files FROM the NRP nautilus cluster TO the t2 cluster or otherwise desired location. It has the same functionality as `kube_copy.py`. For example:
+
+```bash
+# Dry run first
+python kube_reversecopy.py \
+  --input-dirs /data/ADsamples/VBFHto2B_25 \
+  --output-path /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --dry-run
+
+# For real
+python kube_reversecopy.py \
+  --input-dirs /data/ADsamples/VBFHto2B_25 \
+  --output-path /ceph/cms/store/user/mequinna/ntuples/VBFHto2B_25 \
+  --namespace axol1tl \
+  --pvc traindatavol \
+  --copy-pod copy-pod \
+  --files-per-job 50 \
+  --max-parallel 4 \
+  --flat
+```
+
+The full list of options can be found below. the only meaningful differences compared to `kube_copy.py` are:
+
+* `--input-dirs` describes PVC paths instead of UAF paths
+* `--output-path` describes a UAF destination instead of a PVC destination
+* `--skip-existing` says "present locally on UAF" instead of "present in the pod"
+* `--dry-run` notes that file discovery requires a live pod, so it exits early
+
+Reverse copy options:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--input-dirs` | required | One or more source directories inside the NRP PVC (e.g. `/data/ntuples/QCD`). Recursively finds all `.root` files via `kubectl exec`. |
+| `--output-path` | required | Destination directory on UAF (e.g. `/ceph/cms/store/user/mequinna/ntuples`). |
+| `--namespace` | `axol1tl` | Kubernetes namespace. |
+| `--pvc` | required | PVC name, e.g. `mequinna-pvc`. |
+| `--copy-pod` | `copy-pod` | Name of the long-lived pod with the PVC mounted. |
+| `--create-pod` | off | Create the copy pod if it doesn't exist. |
+| `--prefix` | none | One prefix string per input dir. `--prefix QCD TTbar` renames files to `QCD_file.root`, `TTbar_file.root`. Count must match `--input-dirs`. |
+| `--filetype` | `*.root` | File pattern to match. e.g. `--filetype '*.h5'` or `--filetype '*'` for all files. |
+| `--flat` | off | Put all output files in one flat directory. Without this, subdirectory structure from the PVC is preserved. |
+| `--files-per-job` | `100` | Number of files per batch. |
+| `--max-parallel` | `4` | Maximum number of batches running simultaneously. |
+| `--skip-existing` | off | Skip files already present locally on UAF. |
+| `--no-wait` | off | Launch batches and return immediately. Use `--summarize` to check results later. |
+| `--summarize` | off | Parse log files and print summary. No copying. Pass log glob: `--summarize copy_logs/batch_*.log`. Also needs `--output-path`, `--namespace`, `--pvc`, `--copy-pod` for the resubmit command. |
+| `--krsync` | `./krsync` | Path to krsync wrapper. Created automatically if missing. |
+| `--log-dir` | `./copy_logs` | Directory for per-batch shell scripts and log files. |
+| `--log-file` | `copy_summary.json` | JSON file summarising all file statuses at the end of a blocking run. |
+| `--dry-run` | off | Print everything that would happen without copying anything. Note: file discovery requires a live pod connection, so dry-run exits after the pod check. |
